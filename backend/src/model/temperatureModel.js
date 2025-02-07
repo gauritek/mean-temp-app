@@ -2,7 +2,11 @@ const mongoose = require('mongoose');
 
 const TempModel = mongoose.Schema({
     temp: {
-        type: Number,        
+        type: Number,
+        required: false
+    },
+    cityName: {
+        type: String,
         required: false
     },
     tempStatus: {

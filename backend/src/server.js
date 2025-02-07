@@ -7,6 +7,7 @@ const route = require('./route');
 const cors = require('cors');
 const port = 5000;
 const TempModel = require('./model/temperatureModel');
+const url = require('url');
 
 const app = express();
 
@@ -20,8 +21,7 @@ app.use('/', route);
 
 
 // OpenWeatherMap API key
-const API_KEY_TEMP = '3d8717f0c2cee7667b0f49b644c5d469';
-const openWeatherMap = `http://api.openweathermap.org/data/2.5/weather?q=Delhi&appid=${API_KEY_TEMP}&units=metric`;
+let API_KEY_TEMP = '3d8717f0c2cee7667b0f49b644c5d469';
 
 mongoose.connect('mongodb://localhost:27017/tempDB');
 const db = mongoose.connection;
@@ -36,26 +36,39 @@ catch (error) {
 
 // WebSocket server
 const wss = new WebSocket.Server({ noServer: true });
+let cityNames = ['Chandigarh', 'London', 'California', 'Manali', 'Jaipur'];
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
     console.log('Client connected');
+
 
     // Function to fetch weather data
     const fetchWeatherData = async () => {
+
+        let index = Math.floor(Math.random() * cityNames.length);
+        let randonCity = cityNames[index];
+        console.log(randonCity)
+
+        let openWeatherMap = `http://api.openweathermap.org/data/2.5/weather?q=${randonCity}&appid=${API_KEY_TEMP}&units=metric`;
+        console.log(openWeatherMap);
+
         try {
-            const response = await axios.get(
+            let response = await axios.get(
                 openWeatherMap
             );
 
-            const temperature = response.data.main.temp;
+            let temperature = response.data.main.temp;
+            console.log(temperature);
             ws.send(JSON.stringify({ temperature }));
 
-            const tempStatus = 'Normal';
+            let tempStatus = 'Normal';
             if (temperature >= 22) {
                 tempStatus = 'High';
             }
 
-            saveTemperatureData(temperature, tempStatus);
+            saveTemperatureData(temperature, randonCity, tempStatus);
+            console.log('Saved to mongon DB');
+            console.log('----------------------------------------------')
         } catch (error) {
             console.error('Error fetching weather data:', error);
         }
@@ -65,6 +78,8 @@ wss.on('connection', (ws) => {
     const intervalId = setInterval(fetchWeatherData, 10000);
 
     ws.on('close', () => {
+        console.log('Connection closed');
+        console.log('.................................................................');
         clearInterval(intervalId);
     });
 });
@@ -72,9 +87,10 @@ wss.on('connection', (ws) => {
 
 
 // Save data to monogDB
-const saveTemperatureData = (realTemp, status) => {
+const saveTemperatureData = (realTemp, realCityName, status) => {
     const body = {
         temp: realTemp,
+        cityName: realCityName,
         tempStatus: status
     };
     try {
